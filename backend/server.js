@@ -25,6 +25,7 @@ app.use(
       "http://localhost:5173",
       "http://quiz-master-application.netlify.app/"
     ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true
   })
 );
