@@ -19,7 +19,15 @@ const Question = require('./models/Question');
 const Result = require('./models/Result');
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://quiz-master-application.netlify.app/"
+    ],
+    credentials: true
+  })
+);
 app.use(express.json());
 
 const uploadDir = path.join(__dirname, 'uploads');
