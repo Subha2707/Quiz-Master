@@ -169,25 +169,38 @@ const hasMailExchange = async (email) => {
   }
 };
 
-const transporter = nodemailer.createTransport({
-  host,
-  port,
-  secure: port === 465,
-  auth: {
-    user,
-    pass
-  }
-});
+const getMailTransporter = () => {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
 
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("SMTP VERIFY ERROR:", error);
-  } else {
-    console.log("SMTP SERVER READY");
+  if (!host || !port || !user || !pass) {
+    console.log("SMTP configuration missing");
+    return null;
   }
-});
 
-return transporter;
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: {
+      user,
+      pass
+    }
+  });
+
+  transporter.verify((error) => {
+    if (error) {
+      console.error("SMTP VERIFY ERROR:", error);
+    } else {
+      console.log("SMTP SERVER READY");
+    }
+  });
+
+  return transporter;
+};
+
 
 const sendVerificationEmail = async ({ email, subject, text }) => {
   try {
