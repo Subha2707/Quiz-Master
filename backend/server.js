@@ -169,39 +169,56 @@ const hasMailExchange = async (email) => {
   }
 };
 
-const getMailTransporter = () => {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (!host || !user || !pass) {
-    return null;
+const transporter = nodemailer.createTransport({
+  host,
+  port,
+  secure: port === 465,
+  auth: {
+    user,
+    pass
   }
+});
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass }
-  });
-};
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("SMTP VERIFY ERROR:", error);
+  } else {
+    console.log("SMTP SERVER READY");
+  }
+});
+
+return transporter;
 
 const sendVerificationEmail = async ({ email, subject, text }) => {
-  const transporter = getMailTransporter();
-  if (!transporter) {
-    console.log(`${subject} for ${email}: ${text}`);
+  try {
+    const transporter = getMailTransporter();
+
+    if (!transporter) {
+      console.log("SMTP transporter not configured");
+      console.log(`${subject} for ${email}: ${text}`);
+      return false;
+    }
+
+    console.log(`Attempting to send email to: ${email}`);
+
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject,
+      text
+    });
+
+    console.log("Email sent successfully!");
+    console.log("Message ID:", info.messageId);
+
+    return true;
+
+  } catch (error) {
+    console.error("EMAIL SEND ERROR:");
+    console.error(error);
+
     return false;
   }
-
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: email,
-    subject,
-    text
-  });
-
-  return true;
 };
 
 const applyEmailVerificationCode = async (user, code) => {
