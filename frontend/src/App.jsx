@@ -18,7 +18,7 @@ import QuizArea from './pages/QuizArea';
 import Leaderboard from './pages/Leaderboard';
 import AdminPanel from './pages/AdminPanel';
 
-// import AdminPrompt from './pages/AdminPrompt';
+import AdminPrompt from './pages/AdminPrompt';
 
 // const MAIN_ADMIN_EMAIL = 'deysubhadip66@gmail.com';
 
@@ -73,13 +73,22 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
           <Route
             path="/admin"
             element={
               <ProtectedRoute>
                 <AdminRoute>
                   <AdminPanel />
+                </AdminRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/generate"
+            element={
+              <ProtectedRoute>
+                <AdminRoute>
+                  <AdminPrompt />
                 </AdminRoute>
               </ProtectedRoute>
             }
