@@ -18,6 +18,12 @@ const Quiz = require('./models/Quiz');
 const Question = require('./models/Question');
 const Result = require('./models/Result');
 
+
+dns.lookup("smtp.gmail.com", (err, address) => {
+  console.log("DNS TEST:", err || address);
+});
+
+
 const app = express();
 app.use(
   cors({
@@ -180,10 +186,15 @@ const getMailTransporter = () => {
     return null;
   }
 
+  console.log("SMTP_HOST:", host);
+  console.log("SMTP_PORT:", port);
+  console.log("SMTP_USER:", user);
+
   const transporter = nodemailer.createTransport({
     host,
     port,
     secure: false,
+    requireTLS: true,
     auth: {
       user,
       pass
