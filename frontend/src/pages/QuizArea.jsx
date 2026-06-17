@@ -10,7 +10,7 @@ export default function QuizArea() {
   const [selected, setSelected] = useState(null);
   const [quiz, setQuiz] = useState(null);
   const [questions, setQuestions] = useState([]);
-  const [answers, setAnswers] = useState([]);
+  const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showReview, setShowReview] = useState(false);
@@ -88,6 +88,8 @@ export default function QuizArea() {
         formattedAnswers[q._id] = finalAnswers[index];
       });
 
+      console.log("FINAL ANSWERS ARRAY:", finalAnswers);
+      console.log("FORMATTED ANSWERS:", formattedAnswers);
       await api.post(
         `/quizzes/${quizId}/submit`,
         {
@@ -269,7 +271,14 @@ export default function QuizArea() {
           <button 
             key={i} 
             className={`option-btn ${selected === i ? 'selected' : ''}`}
-            onClick={() => setSelected(i)}
+            onClick={() => {
+              setSelected(i);
+
+              setAnswers(prev=>({
+                ...prev,
+                [q._id]: i
+              }));
+            }}
           >
             {opt}
           </button>
