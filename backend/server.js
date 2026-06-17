@@ -10,7 +10,6 @@ const Groq = require('groq-sdk');
 const fs = require('fs');
 const path = require('path');
 const dns = require('dns');
-const { Resend } = require('resend');
 
 
 // Models
@@ -67,7 +66,6 @@ const MONGO_URI = process.env.MONGO_URI_STANDARD ||
 const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'quiz-platform';
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
 const MAIN_ADMIN_EMAIL = 'deysubhadip66@gmail.com';
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 if (process.env.MONGO_DNS_SERVERS) {
   dns.setServers(process.env.MONGO_DNS_SERVERS.split(',').map(server => server.trim()).filter(Boolean));
@@ -160,7 +158,6 @@ const mainAdminOnly = async (req, res, next) => {
   }
 };
 
-const createVerificationCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
 const isValidEmailFormat = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -172,48 +169,6 @@ const hasMailExchange = async (email) => {
   } catch {
     return false;
   }
-};
-
-
-
-const sendVerificationEmail = async ({
-  email,
-  subject,
-  text
-}) => {
-  try {
-
-    const result = await resend.emails.send({
-      from: 'QuizMaster <onboarding@resend.dev>',
-      to: email,
-      subject,
-      text
-    });
-
-    console.log('Email sent:', result);
-
-    return true;
-
-  } catch (error) {
-
-    console.error('RESEND ERROR:', error);
-
-    return false;
-  }
-};
-
-
-const applyEmailVerificationCode = async (user, code) => {
-  const salt = await bcrypt.genSalt(10);
-  user.emailVerificationCodeHash = await bcrypt.hash(code, salt);
-  user.emailVerificationCodeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-};
-
-const applyPasswordResetCode = async (user, code) => {
-  const salt = await bcrypt.genSalt(10);
-  user.resetCodeHash = await bcrypt.hash(code, salt);
-  user.resetCodeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  user.resetVerifiedUntil = undefined;
 };
 
 
@@ -272,262 +227,257 @@ const normalizeQuestions = (questions, expectedCount) => {
 
 app.post('/api/auth/register', requireDatabase, async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
+
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "Name, email, and password are required" });
+      return res.status(400).json({
+        message: 'Name, email and password are required'
+      });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    if (!isValidEmailFormat(normalizedEmail)) {
-      return res.status(400).json({ message: "Enter a valid email address" });
-    }
 
-    if (!(await hasMailExchange(normalizedEmail))) {
-      return res.status(400).json({ message: "This email domain cannot receive mail" });
-    }
+    const existingUser = await User.findOne({
+      email: normalizedEmail
+    });
 
-    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      if (normalizedEmail === MAIN_ADMIN_EMAIL) {
-        return res.status(400).json({ message: "The main admin account already exists. Please login or reset the password." });
-      }
-
-      if (existingUser.emailVerified === false) {
-        const salt = await bcrypt.genSalt(10);
-        const code = createVerificationCode();
-        existingUser.name = name.trim();
-        existingUser.passwordHash = await bcrypt.hash(password, salt);
-        await applyEmailVerificationCode(existingUser, code);
-        await existingUser.save();
-        const sentByEmail = await sendVerificationEmail({
-          email: normalizedEmail,
-          subject: 'Verify your QuizMaster account',
-          text: `Your QuizMaster verification code is ${code}. It expires in 10 minutes.`
-        });
-
-        return res.status(200).json({
-          message: "Verification code sent. Please verify your email to finish registration.",
-          requiresVerification: true,
-          email: normalizedEmail,
-          devCode: process.env.NODE_ENV !== 'production' ? code : undefined
-        });
-      }
-
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({
+        message: 'User already exists'
+      });
     }
 
     const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
 
-    const code = createVerificationCode();
+    const passwordHash = await bcrypt.hash(
+      password,
+      salt
+    );
+
     const newUser = new User({
       name: name.trim(),
       email: normalizedEmail,
       passwordHash,
-      emailVerified: false,
-      role: normalizedEmail === MAIN_ADMIN_EMAIL ? 'ADMIN' : 'USER'
+      role:
+        normalizedEmail === MAIN_ADMIN_EMAIL
+          ? 'ADMIN'
+          : 'USER'
     });
-    await applyEmailVerificationCode(newUser, code);
+
     await newUser.save();
 
-    const sentByEmail = await sendVerificationEmail({
-      email: normalizedEmail,
-      subject: 'Verify your QuizMaster account',
-      text: `Your QuizMaster verification code is ${code}. It expires in 10 minutes.`
-    });
-
-    if (!sentByEmail) {
-      return res.status(500).json({
-        error: "Failed to send verification email."
-      });
-    }
+    const token = jwt.sign(
+      {
+        id: newUser._id,
+        role: newUser.role
+      },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '1d' }
+    );
 
     res.status(201).json({
-      message: "Verification code sent. Please verify your email to finish registration.",
-      requiresVerification: true,
-      email: normalizedEmail,
-      devCode: process.env.NODE_ENV !== 'production' ? code : undefined
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/auth/verify-registration', requireDatabase, async (req, res) => {
-  try {
-    const { email, code } = req.body;
-    if (!email || !code) {
-      return res.status(400).json({ message: "Email and verification code are required" });
-    }
-
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (
-      !user ||
-      !user.emailVerificationCodeHash ||
-      !user.emailVerificationCodeExpiresAt ||
-      user.emailVerificationCodeExpiresAt < new Date()
-    ) {
-      return res.status(400).json({ message: "Invalid or expired verification code" });
-    }
-
-    const isValidCode = await bcrypt.compare(String(code).trim(), user.emailVerificationCodeHash);
-    if (!isValidCode) {
-      return res.status(400).json({ message: "Invalid or expired verification code" });
-    }
-
-    user.emailVerified = true;
-    user.emailVerificationCodeHash = undefined;
-    user.emailVerificationCodeExpiresAt = undefined;
-    await user.save();
-
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' });
-    res.json({
-      message: "Email verified successfully",
+      message: 'Registration successful',
       token,
-      user: { id: user._id, name: user.name, email: user.email, role: user.role }
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role
+      }
     });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    res.status(500).json({
+      error: err.message
+    });
+
   }
 });
+
 
 app.post('/api/auth/login', requireDatabase, async (req, res) => {
   try {
+
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
-    }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    const user = await User.findOne({
+      email: email.toLowerCase().trim()
+    });
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
-
-    if (
-      user.emailVerified === false &&
-      user.email !== MAIN_ADMIN_EMAIL
-    ) {
-      return res.status(403).json({
-        message: "Please verify your email before logging in."
+    if (!user) {
+      return res.status(400).json({
+        message: 'Invalid credentials'
       });
     }
 
-    if (user.email === MAIN_ADMIN_EMAIL && user.role !== 'ADMIN') {
+    const isMatch = await bcrypt.compare(
+      password,
+      user.passwordHash
+    );
+
+    if (!isMatch) {
+      return res.status(400).json({
+        message: 'Invalid credentials'
+      });
+    }
+
+    if (
+      user.email === MAIN_ADMIN_EMAIL &&
+      user.role !== 'ADMIN'
+    ) {
       user.role = 'ADMIN';
       await user.save();
     }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' });
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    const token = jwt.sign(
+      {
+        id: user._id,
+        role: user.role
+      },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '1d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    res.status(500).json({
+      error: err.message
+    });
+
   }
 });
 
 app.post('/api/auth/forgot-password', requireDatabase, async (req, res) => {
   try {
+
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
 
-    const normalizedEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: normalizedEmail });
-
-    if (!user) {
-      return res.json({ message: "If this email exists, a verification code has been sent." });
-    }
-
-    const code = createVerificationCode();
-    await applyPasswordResetCode(user, code);
-    await user.save();
-
-    const sentByEmail = await sendVerificationEmail({
-      email: normalizedEmail,
-      subject: 'Reset your QuizMaster password',
-      text: `Your QuizMaster password reset code is ${code}. It expires in 10 minutes.`
+    const user = await User.findOne({
+      email: email.toLowerCase().trim()
     });
 
-    if (!sentByEmail) {
-      return res.status(500).json({
-        error: "Failed to send verification email."
+    if (!user) {
+      return res.status(400).json({
+        message: 'User not found'
       });
     }
 
+    const code = String(
+      Math.floor(
+        100000 + Math.random() * 900000
+      )
+    );
+
+    user.resetCode = code;
+
+    await user.save();
+
     res.json({
-      message: "Verification code sent. Please check your email.",
-      devCode: sentByEmail || process.env.NODE_ENV === 'production' ? undefined : code
+      message: 'Verification code generated',
+      devCode: code
     });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    res.status(500).json({
+      error: err.message
+    });
+
   }
 });
 
 app.post('/api/auth/verify-reset-code', requireDatabase, async (req, res) => {
   try {
+
     const { email, code } = req.body;
-    if (!email || !code) {
-      return res.status(400).json({ message: "Email and verification code are required" });
+
+    const user = await User.findOne({
+      email: email.toLowerCase().trim()
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: 'User not found'
+      });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user || !user.resetCodeHash || !user.resetCodeExpiresAt || user.resetCodeExpiresAt < new Date()) {
-      return res.status(400).json({ message: "Invalid or expired verification code" });
+    if (user.resetCode !== code) {
+      return res.status(400).json({
+        message: 'Invalid verification code'
+      });
     }
 
-    const isValidCode = await bcrypt.compare(String(code).trim(), user.resetCodeHash);
-    if (!isValidCode) {
-      return res.status(400).json({ message: "Invalid or expired verification code" });
-    }
+    res.json({
+      message: 'Code verified successfully'
+    });
 
-    user.resetVerifiedUntil = new Date(Date.now() + 10 * 60 * 1000);
-    await user.save();
-
-    res.json({ message: "Verification successful. You can reset your password now." });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    res.status(500).json({
+      error: err.message
+    });
+
   }
 });
 
 app.post('/api/auth/reset-password', requireDatabase, async (req, res) => {
   try {
-    const { email, code, password } = req.body;
-    if (!email || !code || !password) {
-      return res.status(400).json({ message: "Email, verification code, and new password are required" });
+
+    const {
+      email,
+      code,
+      password
+    } = req.body;
+
+    const user = await User.findOne({
+      email: email.toLowerCase().trim()
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: 'User not found'
+      });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters long" });
-    }
-
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (
-      !user ||
-      !user.resetCodeHash ||
-      !user.resetCodeExpiresAt ||
-      user.resetCodeExpiresAt < new Date() ||
-      !user.resetVerifiedUntil ||
-      user.resetVerifiedUntil < new Date()
-    ) {
-      return res.status(400).json({ message: "Please verify a valid code before resetting your password" });
-    }
-
-    const isValidCode = await bcrypt.compare(String(code).trim(), user.resetCodeHash);
-    if (!isValidCode) {
-      return res.status(400).json({ message: "Invalid or expired verification code" });
+    if (user.resetCode !== code) {
+      return res.status(400).json({
+        message: 'Invalid verification code'
+      });
     }
 
     const salt = await bcrypt.genSalt(10);
-    user.passwordHash = await bcrypt.hash(password, salt);
-    user.resetCodeHash = undefined;
-    user.resetCodeExpiresAt = undefined;
-    user.resetVerifiedUntil = undefined;
+
+    user.passwordHash =
+      await bcrypt.hash(
+        password,
+        salt
+      );
+
+    user.resetCode = undefined;
+
     await user.save();
 
-    res.json({ message: "Password reset successful. Please login with your new password." });
+    res.json({
+      message: 'Password reset successful'
+    });
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    res.status(500).json({
+      error: err.message
+    });
+
   }
 });
 
