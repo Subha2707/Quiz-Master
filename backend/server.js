@@ -7,10 +7,11 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
 const Groq = require('groq-sdk');
-const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 const dns = require('dns');
+const { Resend } = require('resend');
+
 
 // Models
 const User = require('./models/User');
@@ -19,9 +20,6 @@ const Question = require('./models/Question');
 const Result = require('./models/Result');
 
 
-dns.lookup("smtp.gmail.com", (err, address) => {
-  console.log("DNS TEST:", err || address);
-});
 
 
 const app = express();
@@ -69,6 +67,7 @@ const MONGO_URI = process.env.MONGO_URI_STANDARD ||
 const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'quiz-platform';
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.1-8b-instant';
 const MAIN_ADMIN_EMAIL = 'deysubhadip66@gmail.com';
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 if (process.env.MONGO_DNS_SERVERS) {
   dns.setServers(process.env.MONGO_DNS_SERVERS.split(',').map(server => server.trim()).filter(Boolean));
@@ -175,75 +174,34 @@ const hasMailExchange = async (email) => {
   }
 };
 
-const getMailTransporter = () => {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (!host || !port || !user || !pass) {
-    console.log("SMTP configuration missing");
-    return null;
-  }
-
-  console.log("SMTP_HOST:", host);
-  console.log("SMTP_PORT:", port);
-  console.log("SMTP_USER:", user);
-
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: false,
-    requireTLS: true,
-    auth: {
-      user,
-      pass
-    }
-  });
-
-  transporter.verify((error) => {
-    if (error) {
-      console.error("SMTP VERIFY ERROR:", error);
-    } else {
-      console.log("SMTP SERVER READY");
-    }
-  });
-
-  return transporter;
-};
 
 
-const sendVerificationEmail = async ({ email, subject, text }) => {
+const sendVerificationEmail = async ({
+  email,
+  subject,
+  text
+}) => {
   try {
-    const transporter = getMailTransporter();
 
-    if (!transporter) {
-      console.log("SMTP transporter not configured");
-      console.log(`${subject} for ${email}: ${text}`);
-      return false;
-    }
-
-    console.log(`Attempting to send email to: ${email}`);
-
-    const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    const result = await resend.emails.send({
+      from: 'QuizMaster <onboarding@resend.dev>',
       to: email,
       subject,
       text
     });
 
-    console.log("Email sent successfully!");
-    console.log("Message ID:", info.messageId);
+    console.log('Email sent:', result);
 
     return true;
 
   } catch (error) {
-    console.error("EMAIL SEND ERROR:");
-    console.error(error);
+
+    console.error('RESEND ERROR:', error);
 
     return false;
   }
 };
+
 
 const applyEmailVerificationCode = async (user, code) => {
   const salt = await bcrypt.genSalt(10);
@@ -351,7 +309,7 @@ app.post('/api/auth/register', requireDatabase, async (req, res) => {
           message: "Verification code sent. Please verify your email to finish registration.",
           requiresVerification: true,
           email: normalizedEmail,
-          devCode: sentByEmail || process.env.NODE_ENV === 'production' ? undefined : code
+          devCode: process.env.NODE_ENV !== 'production' ? code : undefined
         });
       }
 
@@ -378,11 +336,17 @@ app.post('/api/auth/register', requireDatabase, async (req, res) => {
       text: `Your QuizMaster verification code is ${code}. It expires in 10 minutes.`
     });
 
+    if (!sentByEmail) {
+      return res.status(500).json({
+        error: "Failed to send verification email."
+      });
+    }
+
     res.status(201).json({
       message: "Verification code sent. Please verify your email to finish registration.",
       requiresVerification: true,
       email: normalizedEmail,
-      devCode: sentByEmail || process.env.NODE_ENV === 'production' ? undefined : code
+      devCode: process.env.NODE_ENV !== 'production' ? code : undefined
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -484,6 +448,12 @@ app.post('/api/auth/forgot-password', requireDatabase, async (req, res) => {
       subject: 'Reset your QuizMaster password',
       text: `Your QuizMaster password reset code is ${code}. It expires in 10 minutes.`
     });
+
+    if (!sentByEmail) {
+      return res.status(500).json({
+        error: "Failed to send verification email."
+      });
+    }
 
     res.json({
       message: "Verification code sent. Please check your email.",
