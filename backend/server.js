@@ -851,9 +851,7 @@ app.post(
     try {
 
       const { answers, startTime, endTime } = req.body;
-
       const quizId = req.params.id;
-
       const userId = req.user.id;
 
       const questions = await Question.find({
@@ -861,7 +859,6 @@ app.post(
       });
 
       let score = 0;
-
       let correct = 0;
 
       const formattedAnswers = [];
@@ -870,33 +867,36 @@ app.post(
 
         const selected = answers[q._id];
 
+        console.log({
+          question: q.questionText,
+          selected,
+          correct: q.correctOptionIndex,
+          matched:
+            Number(selected) ===
+            Number(q.correctOptionIndex)
+        });
+
         formattedAnswers.push({
           questionId: q._id,
           selectedOptionIndex: selected
         });
 
-        if (selected === q.correctOptionIndex) {
-
+        if (Number(selected) === Number(q.correctOptionIndex)){
           score += 1;
-
           correct++;
-
         }
       });
 
       const result = new Result({
-
         userId,
         quizId,
-
         startTime,
         endTime,
-
         score,
-
         answers: formattedAnswers
       });
 
+      console.log("FINAL SCORE:", score);
       await result.save();
 
       const accuracy =
@@ -907,20 +907,14 @@ app.post(
           : 0;
 
       res.json({
-
         message: 'Quiz submitted successfully',
-
         score,
-
         accuracy,
-
         totalQuestions: questions.length
       });
 
     } catch (err) {
-
       console.error(err);
-
       res.status(500).json({
         error: err.message
       });
