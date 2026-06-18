@@ -4,6 +4,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { FaWandMagicSparkles, FaSpinner } from 'react-icons/fa6';
 import api from '../api/api';
 
+const LEVEL_OPTIONS = {
+  quick: 5,
+  standard: 10,
+  challenge: 20
+};
+
 export default function AdminPrompt() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -12,11 +18,20 @@ export default function AdminPrompt() {
     title: config.title || 'AI Generated Quiz',
     durationMinutes: config.durationMinutes || 30,
     negativeMarkingWeight: config.negativeMarkingWeight || 0,
+    level: config.level || 'standard',
     numQuestions: config.numQuestions || 10,
     sections: '',
     prompt: ''
   });
   const [loading, setLoading] = useState(false);
+
+  const updateLevel = (level) => {
+    setFormData(prev => ({
+      ...prev,
+      level,
+      numQuestions: LEVEL_OPTIONS[level] || prev.numQuestions
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -55,6 +70,14 @@ export default function AdminPrompt() {
         </div>
 
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ flex: '1 1 150px' }}>
+            <label>Quiz Level</label>
+            <select className="form-control" value={formData.level} onChange={e => updateLevel(e.target.value)} required>
+              <option value="quick">Quick</option>
+              <option value="standard">Standard</option>
+              <option value="challenge">Challenge</option>
+            </select>
+          </div>
           <div className="form-group" style={{ flex: '1 1 150px' }}>
             <label>Total Questions</label>
             <input type="number" className="form-control" value={formData.numQuestions} onChange={e => setFormData({...formData, numQuestions: e.target.value})} required />

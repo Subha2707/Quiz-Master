@@ -5,6 +5,11 @@ import { FaCloudUploadAlt, FaPlusCircle, FaSpinner, FaUserShield } from 'react-i
 import api from '../api/api';
 
 const MAIN_ADMIN_EMAIL = 'deysubhadip66@gmail.com';
+const LEVEL_OPTIONS = {
+  quick: 5,
+  standard: 10,
+  challenge: 20
+};
 
 export default function AdminPanel() {
   const navigate = useNavigate();
@@ -16,6 +21,7 @@ export default function AdminPanel() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [quizConfig, setQuizConfig] = useState({
     title: '',
+    level: 'standard',
     numQuestions: 10,
     durationMinutes: 30,
     negativeMarkingWeight: 0
@@ -42,6 +48,14 @@ export default function AdminPanel() {
 
   const updateConfig = (field, value) => {
     setQuizConfig(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateLevel = (level) => {
+    setQuizConfig(prev => ({
+      ...prev,
+      level,
+      numQuestions: LEVEL_OPTIONS[level] || prev.numQuestions
+    }));
   };
 
   const updateUserRole = async (userId, role) => {
@@ -109,6 +123,14 @@ export default function AdminPanel() {
             <input type="text" className="form-control" placeholder="JavaScript Fundamentals" value={quizConfig.title} onChange={e => updateConfig('title', e.target.value)} />
           </div>
           <div className="form-row">
+            <div className="form-group">
+              <label>Quiz Level</label>
+              <select className="form-control" value={quizConfig.level} onChange={e => updateLevel(e.target.value)}>
+                <option value="quick">Quick</option>
+                <option value="standard">Standard</option>
+                <option value="challenge">Challenge</option>
+              </select>
+            </div>
             <div className="form-group">
               <label>No. of Questions</label>
               <input type="number" min="1" className="form-control" value={quizConfig.numQuestions} onChange={e => updateConfig('numQuestions', e.target.value)} />
