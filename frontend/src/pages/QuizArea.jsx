@@ -233,7 +233,7 @@ export default function QuizArea() {
 
           <button
             className="btn-primary"
-            onClick={submitQuiz}
+            onClick={() => submitQuiz()}
           >
 
             Final Submit
