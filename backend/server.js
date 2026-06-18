@@ -672,9 +672,10 @@ app.get(
       const results = await Result.find()
 
         .populate('userId', 'name')
+        .populate('quizId', 'title durationMinutes')
         .sort({ score: -1 })
 
-        .limit(20);
+        .limit(100);
 
       const leaderboard = await Promise.all(
 
@@ -697,9 +698,23 @@ app.get(
             name:
               r.userId?.name || 'Unknown',
 
+            quizTitle: r.quizId?.title || 'Unknown Quiz',
+
+            durationMinutes: r.quizId?.durationMinutes || 0,
+
             score: r.score,
 
-            accuracy
+            accuracy,
+
+            correctAnswers: r.correctAnswers || 0,
+
+            wrongAnswers: r.wrongAnswers || 0,
+
+            unanswered: r.unanswered || 0,
+
+            totalQuestions: r.totalQuestions || totalQuestions,
+
+            completedAt: r.createdAt
           };
         })
       );

@@ -162,7 +162,7 @@ export default function AdminPanel() {
             <p style={{ color: '#666' }}>Loading users...</p>
           ) : (
             <div style={{ display: 'grid', gap: '0.75rem' }}>
-              {users.map(user => {
+              {users.slice(0, 5).map(user => {
                 const isMainAdminUser = user.email === MAIN_ADMIN_EMAIL;
                 return (
                   <div
@@ -193,6 +193,16 @@ export default function AdminPanel() {
                   </div>
                 );
               })}
+              {users.length > 5 && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => navigate('/admin/users')}
+                  style={{ width: '100%', marginTop: '0.5rem' }}
+                >
+                  View All Users
+                </button>
+              )}
             </div>
           )}
         </section>

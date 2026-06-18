@@ -1,5 +1,6 @@
 // eslint-disable-next-line no-unused-vars
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/api';
 import LoadingScreen from '../components/LoadingScreen';
 import {
@@ -45,6 +46,7 @@ export default function Leaderboard() {
     return leaders.filter(user => String(user.name || '').toLowerCase().includes(normalizedQuery));
   }, [leaders, query]);
 
+  const topFive = filteredLeaders.slice(0, 5);
   const topThree = leaders.slice(0, 3);
   const topScore = leaders[0]?.score || 0;
   const averageAccuracy = leaders.length
@@ -77,7 +79,7 @@ export default function Leaderboard() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <p style={{ color: '#666', fontWeight: 700 }}>
-            Showing {filteredLeaders.length} of {leaders.length}
+            Showing top {Math.min(topFive.length, 5)} of {leaders.length}
           </p>
           <div style={{ position: 'relative', minWidth: '260px' }}>
             <FaSearch style={{ position: 'absolute', top: '15px', left: '14px', color: '#777' }} />
@@ -155,13 +157,15 @@ export default function Leaderboard() {
                 <tr>
                   <th>Rank</th>
                   <th>Name</th>
+                  <th>Quiz</th>
                   <th>Score</th>
                   <th>Accuracy</th>
+                  <th>Played</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredLeaders.map((user, index) => {
+                {topFive.map((user, index) => {
                   const originalRank = leaders.findIndex(item => item._id === user._id) + 1;
                   const isCurrentUser = currentUser?.name === user.name;
                   return (
@@ -174,8 +178,10 @@ export default function Leaderboard() {
                     >
                       <td>#{originalRank || index + 1}</td>
                       <td>{user.name}</td>
+                      <td>{user.quizTitle}</td>
                       <td>{user.score}</td>
                       <td>{user.accuracy}%</td>
+                      <td>{user.completedAt ? new Date(user.completedAt).toLocaleString() : '-'}</td>
                       <td>{originalRank <= 3 ? 'Podium' : isCurrentUser ? 'You' : 'Challenger'}</td>
                     </tr>
                   );
@@ -184,7 +190,13 @@ export default function Leaderboard() {
             </table>
           </div>
 
-          {filteredLeaders.length === 0 && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
+            <Link to="/leaderboard/all" className="btn-primary" style={{ textDecoration: 'none' }}>
+              View All Rankings
+            </Link>
+          </div>
+
+          {topFive.length === 0 && (
             <p style={{ color: '#666', marginTop: '1rem' }}>No players match your search.</p>
           )}
         </>

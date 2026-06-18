@@ -16,6 +16,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import QuizArea from './pages/QuizArea';
 import Leaderboard from './pages/Leaderboard';
+import FullLeaderboard from './pages/FullLeaderboard';
 import AdminPanel from './pages/AdminPanel';
 
 import AdminPrompt from './pages/AdminPrompt';
@@ -70,6 +71,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Leaderboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leaderboard/all"
+            element={
+              <ProtectedRoute>
+                <FullLeaderboard />
               </ProtectedRoute>
             }
           />
