@@ -944,6 +944,15 @@ app.post(
   }
 );
 
+// Health Route
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "QuizMaster Backend is running"
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
