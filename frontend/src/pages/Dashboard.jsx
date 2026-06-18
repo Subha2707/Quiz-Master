@@ -81,14 +81,7 @@ export default function Dashboard() {
 
   return (
     <div className="glass-card" style={{ margin: 'auto', width: '100%', maxWidth: '1200px' }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(260px, 1fr) minmax(240px, 360px)',
-          gap: '1.5rem',
-          alignItems: 'stretch'
-        }}
-      >
+      <div className="dashboard-hero">
         <div>
           <p style={{ color: '#764ba2', fontWeight: 800, marginBottom: '0.5rem' }}>
             {user?.name ? `Welcome back, ${user.name}` : 'Welcome back'}
@@ -100,18 +93,17 @@ export default function Dashboard() {
         </div>
 
         <div
+          className="dashboard-progress-card"
           style={{
             background: 'linear-gradient(135deg,#667eea,#764ba2)',
-            borderRadius: '8px',
-            padding: '1.25rem',
             color: 'white',
             boxShadow: '0 10px 30px rgba(0,0,0,0.18)'
           }}
         >
           <p style={{ opacity: 0.9, marginBottom: '0.5rem' }}>Progress Goal</p>
           <h2 style={{ color: 'white', marginBottom: '0.75rem' }}>{progressPercent}%</h2>
-          <div style={{ height: '8px', background: 'rgba(255,255,255,0.25)', borderRadius: '999px', overflow: 'hidden' }}>
-            <div style={{ width: `${progressPercent}%`, height: '100%', background: 'white' }} />
+          <div className="dashboard-progress-track">
+            <div className="dashboard-progress-fill" style={{ width: `${progressPercent}%` }} />
           </div>
           <p style={{ marginTop: '0.75rem', opacity: 0.9 }}>
             {stats?.quizzesTaken || 0} of {completionTarget} practice sessions completed.
@@ -179,7 +171,7 @@ export default function Dashboard() {
           <p style={{ color: '#666', fontWeight: 700 }}>
             Showing {filteredQuizzes.length} of {quizzes.length}
           </p>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div className="dashboard-controls">
             <div style={{ position: 'relative', minWidth: '230px' }}>
               <FaSearch style={{ position: 'absolute', top: '15px', left: '14px', color: '#777' }} />
               <input
