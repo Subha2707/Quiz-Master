@@ -1,6 +1,7 @@
 // eslint-disable-next-line no-unused-vars
 import React, { useEffect, useMemo, useState } from 'react';
 import api from '../api/api';
+import LoadingScreen from '../components/LoadingScreen';
 import {
   FaChartLine,
   FaCrown,
@@ -41,7 +42,7 @@ export default function Leaderboard() {
 
   const filteredLeaders = useMemo(() => {
     const normalizedQuery = query.toLowerCase().trim();
-    return leaders.filter(user => user.name.toLowerCase().includes(normalizedQuery));
+    return leaders.filter(user => String(user.name || '').toLowerCase().includes(normalizedQuery));
   }, [leaders, query]);
 
   const topThree = leaders.slice(0, 3);
@@ -49,6 +50,10 @@ export default function Leaderboard() {
   const averageAccuracy = leaders.length
     ? Math.round(leaders.reduce((sum, user) => sum + (user.accuracy || 0), 0) / leaders.length)
     : 0;
+
+  if (loading) {
+    return <LoadingScreen title="Loading Leaderboard" subtitle="Calculating ranks and podium results..." />;
+  }
 
   return (
     <div className="glass-card" style={{ margin: 'auto', maxWidth: '1120px' }}>
@@ -70,15 +75,23 @@ export default function Leaderboard() {
           </h1>
         </div>
 
-        <div style={{ position: 'relative', minWidth: '260px' }}>
-          <FaSearch style={{ position: 'absolute', top: '15px', left: '14px', color: '#777' }} />
-          <input
-            className="form-control"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search by name"
-            style={{ paddingLeft: '42px' }}
-          />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <p style={{ color: '#666', fontWeight: 700 }}>
+            Showing {filteredLeaders.length} of {leaders.length}
+          </p>
+          <div style={{ position: 'relative', minWidth: '260px' }}>
+            <FaSearch style={{ position: 'absolute', top: '15px', left: '14px', color: '#777' }} />
+            <input
+              className="form-control"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search by name"
+              style={{ paddingLeft: '42px' }}
+            />
+          </div>
+          <button type="button" className="btn-secondary" onClick={() => setQuery('')}>
+            Reset
+          </button>
         </div>
       </div>
 
@@ -96,9 +109,7 @@ export default function Leaderboard() {
         ))}
       </div>
 
-      {loading ? (
-        <p style={{ color: '#666' }}>Loading leaderboard...</p>
-      ) : leaders.length === 0 ? (
+      {leaders.length === 0 ? (
         <div className="stat-card" style={{ borderRadius: '8px' }}>
           <FaTrophy color="#d19b00" size={30} style={{ marginBottom: '0.75rem' }} />
           <h3>No results yet</h3>

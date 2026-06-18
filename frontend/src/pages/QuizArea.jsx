@@ -1,8 +1,17 @@
 // eslint-disable-next-line no-unused-vars
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FaClock, FaArrowRight } from 'react-icons/fa';
+import {
+  FaArrowRight,
+  FaCheckCircle,
+  FaClipboardCheck,
+  FaClock,
+  FaEdit,
+  FaExclamationTriangle,
+  FaQuestionCircle
+} from 'react-icons/fa';
 import api from '../api/api';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function QuizArea() {
   const { quizId } = useParams();
@@ -85,7 +94,6 @@ export default function QuizArea() {
         finalAnswers[questions[currentQ]._id] = selected;
       }
 
-      console.log("FINAL ANSWERS:", finalAnswers);
       await api.post(
         `/quizzes/${quizId}/submit`,
         {
@@ -137,7 +145,7 @@ export default function QuizArea() {
   };
 
   if (loading) {
-    return <div className="glass-card" style={{ margin: 'auto' }}>Loading quiz...</div>;
+    return <LoadingScreen title="Loading Quiz" subtitle="Preparing questions and timer..." />;
   }
 
   if (!questions.length) {
@@ -156,92 +164,154 @@ export default function QuizArea() {
   const seconds = timeLeft % 60;
 
   if (showReview) {
+    const answeredCount = questions.filter(question => answers[question._id] !== undefined).length;
+    const unansweredCount = questions.length - answeredCount;
+    const negativeWeight = Number(quiz?.negativeMarkingWeight) || 0;
 
     return (
-
-      <div
-        className="glass-card"
-        style={{ margin: 'auto' }}
-      >
-
-        <h2
+      <div className="glass-card" style={{ margin: 'auto', maxWidth: '1100px' }}>
+        <div
           style={{
-            marginBottom: '2rem'
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: '1rem',
+            flexWrap: 'wrap',
+            marginBottom: '1.5rem'
           }}
         >
-
-          Review Your Answers
-
-        </h2>
-
-        {questions.map((q, index) => (
-
-          <div
-            key={q._id}
-            style={{
-              marginBottom: '1.5rem',
-              padding: '1rem',
-              borderRadius: '14px',
-              background:
-                'rgba(255,255,255,0.5)'
-            }}
-          >
-
-            <h4>
-              Q{index + 1}.
-              {q.questionText}
-            </h4>
-
-            <p
-              style={{
-                color: '#667eea',
-                fontWeight: '600'
-              }}
-            >
-
-              Selected:
-              {answers[q._id] !== undefined
-
-                ? q.options[answers[q._id]]
-
-                : ' Not Answered'}
-
+          <div>
+            <p style={{ color: '#764ba2', fontWeight: 800, marginBottom: '0.5rem' }}>
+              Final checkpoint
             </p>
-
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <FaClipboardCheck />
+              Review Your Answers
+            </h2>
           </div>
 
-        ))}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(95px, 1fr))',
+              gap: '0.75rem'
+            }}
+          >
+            <div className="stat-card" style={{ padding: '1rem', borderRadius: '8px' }}>
+              <h3 style={{ fontSize: '1.5rem' }}>{answeredCount}</h3>
+              <p>Answered</p>
+            </div>
+            <div className="stat-card" style={{ padding: '1rem', borderRadius: '8px' }}>
+              <h3 style={{ fontSize: '1.5rem' }}>{unansweredCount}</h3>
+              <p>Skipped</p>
+            </div>
+            <div className="stat-card" style={{ padding: '1rem', borderRadius: '8px' }}>
+              <h3 style={{ fontSize: '1.5rem' }}>-{negativeWeight}</h3>
+              <p>Wrong</p>
+            </div>
+          </div>
+        </div>
+
+        {negativeWeight > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'rgba(255,65,108,0.10)',
+              border: '1px solid rgba(255,65,108,0.22)',
+              color: '#8a1f3d',
+              padding: '0.9rem 1rem',
+              borderRadius: '8px',
+              marginBottom: '1.25rem',
+              fontWeight: 700
+            }}
+          >
+            <FaExclamationTriangle />
+            Wrong answers will subtract {negativeWeight} mark. Unanswered questions are not penalized.
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          {questions.map((question, index) => {
+            const selectedIndex = answers[question._id];
+            const isAnswered = selectedIndex !== undefined;
+
+            return (
+              <article
+                key={question._id}
+                style={{
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  background: isAnswered ? 'rgba(255,255,255,0.68)' : 'rgba(255,65,108,0.08)',
+                  border: isAnswered ? '1px solid rgba(255,255,255,0.8)' : '1px solid rgba(255,65,108,0.24)'
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                    alignItems: 'flex-start',
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ flex: '1 1 280px' }}>
+                    <p
+                      style={{
+                        color: isAnswered ? '#23a6d5' : '#FF416C',
+                        fontWeight: 800,
+                        marginBottom: '0.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      {isAnswered ? <FaCheckCircle /> : <FaQuestionCircle />}
+                      Question {index + 1} {question.section ? `- ${question.section}` : ''}
+                    </p>
+                    <h3 style={{ fontSize: '1.05rem', marginBottom: '0.75rem' }}>{question.questionText}</h3>
+                    <p style={{ color: isAnswered ? '#555' : '#8a1f3d', fontWeight: 700 }}>
+                      {isAnswered ? `Selected: ${question.options[selectedIndex]}` : 'Not answered'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      setCurrentQ(index);
+                      setSelected(answers[question._id] ?? null);
+                      setShowReview(false);
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <FaEdit />
+                    Edit
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
 
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
+            gap: '1rem',
+            flexWrap: 'wrap',
             marginTop: '2rem'
           }}
         >
-
-          <button
-            className="btn-primary"
-            onClick={() =>
-              setShowReview(false)
-            }
-          >
-
+          <button className="btn-secondary" onClick={() => setShowReview(false)}>
             Back To Quiz
-
           </button>
 
-          <button
-            className="btn-primary"
-            onClick={() => submitQuiz()}
-          >
-
+          <button className="btn-primary" onClick={() => submitQuiz()}>
             Final Submit
-
           </button>
-
         </div>
-
       </div>
     );
   }

@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
+import LoadingScreen from '../components/LoadingScreen';
 import {
   FaBookOpen,
   FaChartLine,
@@ -53,7 +54,7 @@ export default function Dashboard() {
     const normalizedQuery = query.toLowerCase().trim();
     const result = quizzes.filter(quiz => {
       const count = quiz.questionCount || 0;
-      const matchesQuery = quiz.title.toLowerCase().includes(normalizedQuery);
+      const matchesQuery = String(quiz.title || '').toLowerCase().includes(normalizedQuery);
       const matchesFilter =
         filter === 'all' ||
         (filter === 'quick' && count <= 5) ||
@@ -73,6 +74,10 @@ export default function Dashboard() {
   const recommendedQuiz = filteredQuizzes[0] || quizzes[0];
   const completionTarget = Math.max((stats?.quizzesTaken || 0) + 3, 3);
   const progressPercent = Math.min(100, Math.round(((stats?.quizzesTaken || 0) / completionTarget) * 100));
+
+  if (loading) {
+    return <LoadingScreen title="Loading Dashboard" subtitle="Fetching quizzes, stats, and progress..." />;
+  }
 
   return (
     <div className="glass-card" style={{ margin: 'auto', width: '100%', maxWidth: '1200px' }}>
@@ -171,6 +176,9 @@ export default function Dashboard() {
           }}
         >
           <h2>Available Quizzes</h2>
+          <p style={{ color: '#666', fontWeight: 700 }}>
+            Showing {filteredQuizzes.length} of {quizzes.length}
+          </p>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <div style={{ position: 'relative', minWidth: '230px' }}>
               <FaSearch style={{ position: 'absolute', top: '15px', left: '14px', color: '#777' }} />
@@ -199,12 +207,21 @@ export default function Dashboard() {
                 <option value="questions">Most questions</option>
               </select>
             </div>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setQuery('');
+                setFilter('all');
+                setSortBy('newest');
+              }}
+            >
+              Reset
+            </button>
           </div>
         </div>
 
-        {loading ? (
-          <p style={{ color: '#666' }}>Loading quizzes...</p>
-        ) : filteredQuizzes.length === 0 ? (
+        {filteredQuizzes.length === 0 ? (
           <div className="stat-card" style={{ borderRadius: '8px' }}>
             <FaBookOpen color="#764ba2" size={28} style={{ marginBottom: '0.75rem' }} />
             <h3>No matching quizzes</h3>

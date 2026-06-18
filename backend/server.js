@@ -684,6 +684,11 @@ app.get(
             await Question.countDocuments({
               quizId: r.quizId
             });
+          const accuracy = r.totalQuestions
+            ? r.accuracy
+            : totalQuestions > 0
+              ? Math.max(0, Math.round((r.score / totalQuestions) * 100))
+              : 0;
 
           return {
 
@@ -694,15 +699,7 @@ app.get(
 
             score: r.score,
 
-            accuracy:
-              totalQuestions > 0
-
-                ? Math.round(
-                    (r.score / totalQuestions)
-                    * 100
-                  )
-
-                : 0
+            accuracy
           };
         })
       );
@@ -739,11 +736,10 @@ app.get(
             quizId: r.quizId
           });
 
-        const accuracy =
-          totalQuestions > 0
-
-            ? (r.score / totalQuestions) * 100
-
+        const accuracy = r.totalQuestions
+          ? r.accuracy
+          : totalQuestions > 0
+            ? Math.max(0, (r.score / totalQuestions) * 100)
             : 0;
 
         totalAccuracy += accuracy;
@@ -857,35 +853,45 @@ app.post(
       const questions = await Question.find({
         quizId
       });
+      const quiz = await Quiz.findById(quizId);
+      const negativeMarkingWeight = Math.max(0, Number(quiz?.negativeMarkingWeight) || 0);
 
       let score = 0;
       let correct = 0;
+      let wrong = 0;
+      let unanswered = 0;
 
       const formattedAnswers = [];
 
       questions.forEach((q) => {
 
         const selected = answers[q._id];
-
-        console.log({
-          question: q.questionText,
-          selected,
-          correct: q.correctOptionIndex,
-          matched:
-            Number(selected) ===
-            Number(q.correctOptionIndex)
-        });
+        const hasAnswer = selected !== undefined && selected !== null && selected !== '';
 
         formattedAnswers.push({
           questionId: q._id,
-          selectedOptionIndex: selected
+          selectedOptionIndex: hasAnswer ? Number(selected) : undefined
         });
 
-        if (Number(selected) === Number(q.correctOptionIndex)){
+        if (!hasAnswer) {
+          unanswered++;
+          return;
+        }
+
+        if (Number(selected) === Number(q.correctOptionIndex)) {
           score += 1;
           correct++;
+        } else {
+          score -= negativeMarkingWeight;
+          wrong++;
         }
       });
+
+      score = Number(score.toFixed(2));
+      const accuracy =
+        questions.length > 0
+          ? Math.round((correct / questions.length) * 100)
+          : 0;
 
       const result = new Result({
         userId,
@@ -893,24 +899,25 @@ app.post(
         startTime,
         endTime,
         score,
+        correctAnswers: correct,
+        wrongAnswers: wrong,
+        unanswered,
+        totalQuestions: questions.length,
+        accuracy,
         answers: formattedAnswers
       });
 
-      console.log("FINAL SCORE:", score);
       await result.save();
-
-      const accuracy =
-        questions.length > 0
-          ? Math.round(
-              (correct / questions.length) * 100
-            )
-          : 0;
 
       res.json({
         message: 'Quiz submitted successfully',
         score,
         accuracy,
-        totalQuestions: questions.length
+        correct,
+        wrong,
+        unanswered,
+        totalQuestions: questions.length,
+        negativeMarkingWeight
       });
 
     } catch (err) {
