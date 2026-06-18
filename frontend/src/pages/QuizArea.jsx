@@ -77,23 +77,19 @@ export default function QuizArea() {
 
     try {
       const token = localStorage.getItem('token');
-      const formattedAnswers = {};
 
-      const finalAnswers = overrideAnswers || [...answers];
-      if (!overrideAnswers && selected !== null) {
-        finalAnswers[currentQ] = selected;
+      // Build the final answers object (keyed by question _id)
+      const finalAnswers = { ...(overrideAnswers || answers) };
+      // Save the current question's selection if not already in overrideAnswers
+      if (!overrideAnswers && selected !== null && questions[currentQ]) {
+        finalAnswers[questions[currentQ]._id] = selected;
       }
 
-      questions.forEach((q, index) => {
-        formattedAnswers[q._id] = finalAnswers[index];
-      });
-
-      console.log("FINAL ANSWERS ARRAY:", finalAnswers);
-      console.log("FORMATTED ANSWERS:", formattedAnswers);
+      console.log("FINAL ANSWERS:", finalAnswers);
       await api.post(
         `/quizzes/${quizId}/submit`,
         {
-          answers: formattedAnswers,
+          answers: finalAnswers,
           startTime: new Date(),
           endTime: new Date()
         },
@@ -118,22 +114,23 @@ export default function QuizArea() {
     if (!loading && timeLeft <= 0 && questions.length > 0 && !isSubmitted) {
       const autoSubmitTimer = setTimeout(() => {
         alert("Time's up! Auto-submitting your quiz.");
-        const finalAnswers = [...answers];
-        if (selected !== null) {
-          finalAnswers[currentQ] = selected;
+        const finalAnswers = { ...answers };
+        if (selected !== null && questions[currentQ]) {
+          finalAnswers[questions[currentQ]._id] = selected;
         }
         submitQuiz(finalAnswers);
       }, 0);
 
       return () => clearTimeout(autoSubmitTimer);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, timeLeft, questions.length, isSubmitted, answers, selected, currentQ, submitQuiz]);
 
   const handleEndQuiz = () => {
     if (window.confirm("Are you sure you want to end the quiz? This will submit your current answers and exit.")) {
-      const finalAnswers = [...answers];
-      if (selected !== null) {
-        finalAnswers[currentQ] = selected;
+      const finalAnswers = { ...answers };
+      if (selected !== null && questions[currentQ]) {
+        finalAnswers[questions[currentQ]._id] = selected;
       }
       submitQuiz(finalAnswers);
     }
@@ -203,9 +200,9 @@ export default function QuizArea() {
             >
 
               Selected:
-              {answers[index] !== undefined
+              {answers[q._id] !== undefined
 
-                ? q.options[answers[index]]
+                ? q.options[answers[q._id]]
 
                 : ' Not Answered'}
 
@@ -303,16 +300,19 @@ export default function QuizArea() {
 
           onClick={() => {
 
-            const prevAnswers = [...answers];
+            const prevAnswers = { ...answers };
 
-            prevAnswers[currentQ] = selected;
+            if (selected !== null && questions[currentQ]) {
+              prevAnswers[questions[currentQ]._id] = selected;
+            }
 
             setAnswers(prevAnswers);
 
-            setCurrentQ(prev => prev - 1);
+            const prevIndex = currentQ - 1;
+            setCurrentQ(prevIndex);
 
             setSelected(
-              prevAnswers[currentQ - 1] ?? null
+              prevAnswers[questions[prevIndex]?._id] ?? null
             );
           }}
         >
@@ -350,9 +350,11 @@ export default function QuizArea() {
 
           onClick={() => {
 
-            const nextAnswers = [...answers];
+            const nextAnswers = { ...answers };
 
-            nextAnswers[currentQ] = selected;
+            if (selected !== null && questions[currentQ]) {
+              nextAnswers[questions[currentQ]._id] = selected;
+            }
 
             setAnswers(nextAnswers);
 
@@ -368,10 +370,11 @@ export default function QuizArea() {
 
             else {
 
-              setCurrentQ(prev => prev + 1);
+              const nextIndex = currentQ + 1;
+              setCurrentQ(nextIndex);
 
               setSelected(
-                nextAnswers[currentQ + 1] ?? null
+                nextAnswers[questions[nextIndex]?._id] ?? null
               );
             }
           }}
