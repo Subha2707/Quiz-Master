@@ -3,7 +3,7 @@
 QuizMaster is a modern AI-powered online quiz and assessment platform designed for conducting secure, interactive, and timed MCQ-based examinations. The platform automates quiz generation, participant evaluation, leaderboard ranking, and analytics with a premium responsive UI experience.
 
 ---
-
+# Live URL :- https://quiz-master-application.netlify.app
 #  Features
 
 ##  Authentication & Security
